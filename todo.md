@@ -3,6 +3,7 @@
 ## Pablo tasks ()
 
 - [_] Implement two heuristics and COMMENT ON IT (see 15.6) (4h)
+  _Already working on this at `multiAgents.py/line 286`._
 - [_] Create automatic report generator (tip: use `regex`) and COMMENT ON IT (6h)
 - [_] Implement `AlphaBetaNeuralAgent` and COMMENT ON IT (4h)
 - [_] (Optional) Improvements to `AlphaBetaNeuralAgent` and COMMENT ON IT (12h)

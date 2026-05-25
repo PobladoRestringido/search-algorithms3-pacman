@@ -4,7 +4,7 @@
 # educational purposes provided that (1) you do not distribute or publish
 # solutions, (2) you retain this notice, and (3) you provide clear
 # attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
+#
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
@@ -18,9 +18,11 @@ import os
 from util import manhattanDistance
 from game import Directions
 import random, util
+
 random.seed(42)  # For reproducibility
 from game import Agent
 from pacman import GameState
+
 
 class ReflexAgent(Agent):
     """
@@ -31,7 +33,6 @@ class ReflexAgent(Agent):
     it in any way you see fit, so long as you don't touch our method
     headers.
     """
-
 
     def getAction(self, gameState: GameState):
         """
@@ -48,8 +49,10 @@ class ReflexAgent(Agent):
         # Choose one of the best actions
         scores = [self.evaluationFunction(gameState, action) for action in legalMoves]
         bestScore = max(scores)
-        bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
-        chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+        bestIndices = [
+            index for index in range(len(scores)) if scores[index] == bestScore
+        ]
+        chosenIndex = random.choice(bestIndices)  # Pick randomly among the best
 
         "Add more of your code here if you want to"
 
@@ -80,6 +83,7 @@ class ReflexAgent(Agent):
         "*** YOUR CODE HERE ***"
         return successorGameState.getScore()
 
+
 def scoreEvaluationFunction(currentGameState: GameState):
     """
     This default evaluation function just returns the score of the state.
@@ -89,6 +93,7 @@ def scoreEvaluationFunction(currentGameState: GameState):
     (not reflex agents).
     """
     return currentGameState.getScore()
+
 
 class MultiAgentSearchAgent(Agent):
     """
@@ -105,10 +110,11 @@ class MultiAgentSearchAgent(Agent):
     is another abstract class.
     """
 
-    def __init__(self, evalFn = 'scoreEvaluationFunction', depth = '2'):
-        self.index = 0 # Pacman is always agent index 0
+    def __init__(self, evalFn="scoreEvaluationFunction", depth="2"):
+        self.index = 0  # Pacman is always agent index 0
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
+
 
 class MinimaxAgent(MultiAgentSearchAgent):
     """
@@ -141,6 +147,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
 
+
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
     Your minimax agent with alpha-beta pruning (question 3)
@@ -153,9 +160,10 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
 
+
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
-      Your expectimax agent (question 4)
+    Your expectimax agent (question 4)
     """
 
     def getAction(self, gameState: GameState):
@@ -168,6 +176,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
 
+
 def betterEvaluationFunction(currentGameState: GameState):
     """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
@@ -178,41 +187,44 @@ def betterEvaluationFunction(currentGameState: GameState):
     "*** YOUR CODE HERE ***"
     util.raiseNotDefined()
 
+
 # Abbreviation
 better = betterEvaluationFunction
 
 
 ###########################################################################
-# Ahmed
+# Ahmed
 ###########################################################################
+
 
 class NeuralAgent(Agent):
     """
     Un agente de Pacman que utiliza una red neuronal para tomar decisiones
     basado en la evaluación del estado del juego.
     """
+
     def __init__(self, model_path="models/pacman_model.pth"):
         super().__init__()
         self.model = None
         self.input_size = None
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.load_model(model_path)
-        
+
         # Mapeo de índices a acciones
         self.idx_to_action = {
             0: Directions.STOP,
             1: Directions.NORTH,
             2: Directions.SOUTH,
             3: Directions.EAST,
-            4: Directions.WEST
+            4: Directions.WEST,
         }
-        
+
         # Para evaluar alternativas
         self.action_to_idx = {v: k for k, v in self.idx_to_action.items()}
-        
+
         # Contador de movimientos
         self.move_count = 0
-        
+
         print(f"NeuralAgent inicializado, usando dispositivo: {self.device}")
 
     def load_model(self, model_path):
@@ -221,16 +233,16 @@ class NeuralAgent(Agent):
             if not os.path.exists(model_path):
                 print(f"ERROR: No se encontró el modelo en {model_path}")
                 return False
-                
+
             # Cargar el modelo
             checkpoint = torch.load(model_path, map_location=self.device)
-            self.input_size = checkpoint['input_size']
-            
+            self.input_size = checkpoint["input_size"]
+
             # Crear y cargar el modelo
             self.model = PacmanNet(self.input_size, 128, 5).to(self.device)
-            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.model.load_state_dict(checkpoint["model_state_dict"])
             self.model.eval()  # Modo evaluación
-            
+
             print(f"Modelo cargado correctamente desde {model_path}")
             print(f"Tamaño de entrada: {self.input_size}")
             return True
@@ -243,85 +255,96 @@ class NeuralAgent(Agent):
         # Obtener dimensiones del tablero
         walls = state.getWalls()
         width, height = walls.width, walls.height
-        
+
         # Crear una matriz numérica
         # 0: pared, 1: espacio vacío, 2: comida, 3: cápsula, 4: fantasma, 5: Pacman
         numeric_map = np.zeros((width, height), dtype=np.float32)
-        
+
         # Establecer espacios vacíos (todo lo que no es pared comienza como espacio vacío)
         for x in range(width):
             for y in range(height):
                 if not walls[x][y]:
                     numeric_map[x][y] = 1
-        
+
         # Agregar comida
         food = state.getFood()
         for x in range(width):
             for y in range(height):
                 if food[x][y]:
                     numeric_map[x][y] = 2
-        
+
         # Agregar cápsulas
         for x, y in state.getCapsules():
             numeric_map[x][y] = 3
-        
+
         # Agregar fantasmas
         for ghost_state in state.getGhostStates():
-            ghost_x, ghost_y = int(ghost_state.getPosition()[0]), int(ghost_state.getPosition()[1])
+            ghost_x, ghost_y = int(ghost_state.getPosition()[0]), int(
+                ghost_state.getPosition()[1]
+            )
             # Si el fantasma está asustado, marcarlo diferente
             if ghost_state.scaredTimer > 0:
                 numeric_map[ghost_x][ghost_y] = 6  # Fantasma asustado
             else:
                 numeric_map[ghost_x][ghost_y] = 4  # Fantasma normal
-        
+
         # Agregar Pacman
         pacman_x, pacman_y = state.getPacmanPosition()
         numeric_map[int(pacman_x)][int(pacman_y)] = 5
-        
+
         # Normalizar
         numeric_map = numeric_map / 6.0
-        
+
         return numeric_map
 
     def evaluationFunction(self, state):
         """
-        Una función de evaluación basada en la red neuronal y en heurísticas adicionales.
+        Una función de evaluación basada en la red neuronal y en heurísticas
+        adicionales.
+
+        Heurísticas adicionales
+        -----------------------
+        - Prefer going toward power capsules.
+        - Avoid going for further power capsules when under the effect of one.
+        - Avoid 'undoing' moves unless necessary.
         """
         if self.model is None:
             return 0  # Si no hay modelo, devolver 0
-        
+
         # Convertir a matriz
         state_matrix = self.state_to_matrix(state)
-        
+
         # Convertir a tensor
         state_tensor = torch.FloatTensor(state_matrix).unsqueeze(0).to(self.device)
-        
+
         # Obtener predicciones
         with torch.no_grad():
             output = self.model(state_tensor)
             probabilities = torch.nn.functional.softmax(output, dim=1).cpu().numpy()[0]
-        
+
         # Obtener acciones legales
         legal_actions = state.getLegalActions()
-        
+
         # Aplicar heurísticas adicionales, similar a betterEvaluationFunction
         score = state.getScore()
-        
+
         # Mejorar la evaluación con conocimiento del dominio
         pacman_pos = state.getPacmanPosition()
         food = state.getFood().asList()
         ghost_states = state.getGhostStates()
-        
+
         # Factor 1: Distancia a la comida más cercana
         if food:
-            min_food_distance = min(manhattanDistance(pacman_pos, food_pos) for food_pos in food)
+            min_food_distance = min(
+                manhattanDistance(pacman_pos, food_pos) for food_pos in food
+            )
             score += 1.0 / (min_food_distance + 1)
-        
+
         # Factor 2: Proximidad a fantasmas
         for ghost_state in ghost_states:
             ghost_pos = ghost_state.getPosition()
             ghost_distance = manhattanDistance(pacman_pos, ghost_pos)
-            
+
             if ghost_state.scaredTimer > 0:
                 # Si el fantasma está asustado, acercarse a él
                 score += 50 / (ghost_distance + 1)
@@ -329,14 +352,48 @@ class NeuralAgent(Agent):
                 # Si no está asustado, evitarlo
                 if ghost_distance <= 2:
                     score -= 200  # Gran penalización por estar demasiado cerca
-        
+
+        # Factor 3: Distancia a la cápsula de poder más cercana
+        power_capsules = state.getCapsules()
+
+        if power_capsules:
+            power_active = any(
+                g.scaredTimer > 0 for g in ghost_states
+            )  # detect power capsule effect
+            min_capsule_distance = min(
+                manhattanDistance(pacman_pos, cap_pos) for cap_pos in power_capsules
+            )
+
+            if not power_active:
+                score += 5.0 / (min_capsule_distance + 1)
+            else:
+                # Strongly discourage consuming capsules while powered
+                score -= 100.0 / (min_capsule_distance + 1)
+
+        # Factor 4: Discourage "undoing" moves
+        opposites = {
+            Directions.NORTH: Directions.SOUTH,
+            Directions.SOUTH: Directions.NORTH,
+            Directions.EAST: Directions.WEST,
+            Directions.WEST: Directions.EAST,
+        }
+
+        if self.last_action in opposites:  # (last move might've been STOP)
+            undo = opposites[self.last_action]
+            if undo in legal_actions:
+                score -= 10
+
         # Combinar la puntuación de la red con la heurística
         neural_score = 0
         for i, action in enumerate(self.idx_to_action.values()):
             if action in legal_actions:
                 neural_score += probabilities[i] * 100
-        
+
         return score + neural_score
+
+    def _return_action(self, action):
+        self.last_action = action
+        return action
 
     def getAction(self, state):
         """
@@ -344,43 +401,43 @@ class NeuralAgent(Agent):
         y heurísticas adicionales.
         """
         self.move_count += 1
-        
+
         # Si no hay modelo, hacer un movimiento aleatorio
         if self.model is None:
             print("ERROR: Modelo no cargado. Haciendo movimiento aleatorio.")
             exit()
             legal_actions = state.getLegalActions()
-            return random.choice(legal_actions)
-        
+            return self._return_action(random.choice(legal_actions))
+
         # Obtener acciones legales
         legal_actions = state.getLegalActions()
-        
+
         # Evaluación directa con la red neuronal
         state_matrix = self.state_to_matrix(state)
         state_tensor = torch.FloatTensor(state_matrix).unsqueeze(0).to(self.device)
-        
+
         with torch.no_grad():
             output = self.model(state_tensor)
             probabilities = torch.nn.functional.softmax(output, dim=1).cpu().numpy()[0]
-        
+
         # Mapear índices del modelo a acciones del juego
         action_probs = []
         for idx, prob in enumerate(probabilities):
             action = self.idx_to_action[idx]
             if action in legal_actions:
                 action_probs.append((action, prob))
-        
+
         # Ordenar por probabilidad (mayor a menor)
         action_probs.sort(key=lambda x: x[1], reverse=True)
-        
+
         # Exploración: con una probabilidad decreciente, elegir aleatoriamente
-        exploration_rate = 0.2 * (0.99 ** self.move_count)  # Disminuye con el tiempo
+        exploration_rate = 0.2 * (0.99**self.move_count)  # Disminuye con el tiempo
         if random.random() < exploration_rate:
             # Excluir STOP si es posible
             if len(legal_actions) > 1 and Directions.STOP in legal_actions:
                 legal_actions.remove(Directions.STOP)
-            return random.choice(legal_actions)
-        
+            return self._return_action(random.choice(legal_actions))
+
         # Evaluación alternativa: generar sucesores y evaluar cada uno
         successors = []
         for action in legal_actions:
@@ -393,18 +450,19 @@ class NeuralAgent(Agent):
                     break
             # Combinar evaluación heurística con la predicción de la red
             combined_score = eval_score + neural_score
-            
+
             # Penalizar STOP a menos que sea la única opción
             if action == Directions.STOP and len(legal_actions) > 1:
                 combined_score -= 50
-                
+
             successors.append((action, combined_score))
-        
+
         # Ordenar por puntuación combinada
         successors.sort(key=lambda x: x[1], reverse=True)
-        
+
         # Devolver la mejor acción
-        return successors[0][0]
+        return self._return_action(successors[0][0])
+
 
 # Definir una función para crear el agente
 def createNeuralAgent(model_path="models/pacman_model.pth"):
