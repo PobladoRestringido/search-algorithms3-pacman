@@ -19,7 +19,9 @@ from util import manhattanDistance
 from game import Directions
 import random, util
 
-random.seed(42)  # For reproducibility
+from config import PACMAN_SEED
+
+random.seed(PACMAN_SEED)  # For reproducibility
 from game import Agent
 from pacman import GameState
 
@@ -378,7 +380,9 @@ class NeuralAgent(Agent):
             Directions.WEST: Directions.EAST,
         }
 
-        if self.last_action in opposites:  # (last move might've been STOP)
+        if (
+            hasattr(self, "last_action") and self.last_action in opposites
+        ):  # (last move might've been STOP)
             undo = opposites[self.last_action]
             if undo in legal_actions:
                 score -= 10
