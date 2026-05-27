@@ -148,7 +148,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
         """
         #util.raiseNotDefined()
 
-        def minimax(agentIndex: int, depth: int, gameState: GameState):
+        def minimax(agentIndex: int, depth, gameState: GameState):
             """
             Recursive minimax function
 
@@ -160,7 +160,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
             returns the best evaluation score for this agent (max if pacman, min if ghost)
             """
 
-            if gameState.isWin() or gameState.isLose() or depth == self.depth:
+            if gameState.isWin() or gameState.isLose() or depth == int(self.depth):
                 #if it's a win, a lose, or the maximum depth, we can't do anything else
                 return self.evaluationFunction(gameState)
             
@@ -172,7 +172,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
                 #if the agent is a ghost, it watns to get the minimum value
                 return minValue(agentIndex, depth, gameState)
 
-        def maxValue(agentIndex: int, depth: int, gameState: GameState):
+        def maxValue(agentIndex: int, depth, gameState: GameState):
             """
             Function that calculates the maximum possible value 
 
@@ -215,7 +215,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
                     next_depth = depth
                 else:
                     next_agent = 0
-                    next_depth = depth + 1
+                    next_depth = int(depth) + 1
 
                 for action in legal_actions: 
                     successor = gameState.generateSuccessor(agentIndex, action)
@@ -257,7 +257,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         best_action = None
         best_score = float('-inf')
         
-        def alphabeta(agentIndex: int, depth: int, gameState: GameState, alpha: float, beta: float):
+        def alphabeta(agentIndex: int, depth, gameState: GameState, alpha: float, beta: float):
             if depth == self.depth or gameState.isWin() or gameState.isLose():
                 return self.evaluationFunction(gameState)
             else:
@@ -280,7 +280,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
                             next_depth = depth
                         else:
                             next_agent = 0
-                            next_depth = depth + 1
+                            next_depth = int(depth) + 1
                         eval_score = alphabeta(next_agent, next_depth, successor, alpha, beta)
                         min_eval = min(min_eval, eval_score)
                         beta = min(beta, eval_score)
@@ -301,6 +301,55 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         return best_action
 
 
+#AlphaBeta con pesos:
+class AlphaBetaNeuralAgent(AlphaBetaAgent):
+
+    """
+    Implements the Alpha-Beta algorithm with weights, giving the result
+    final_score = w_heuristic * traditional_score + w_neural * neural_score
+    """
+
+    def __init__(self, w_heuristic = 0.5, w_neural = 0.5, evalFn='scoreEvaluationFunction', depth='2') -> None:
+        """
+        Constructor of the class
+
+        Args
+        ----
+        w_heuristic (float) -> the weight of the alpha-beta
+        w_neural (float) -> the weight of the alpha-beta
+        """
+        super().__init__(evalFn=evalFn, depth=depth)
+        self._w_heuristic = w_heuristic
+        self._w_neural = w_neural
+
+    def normalise(self) -> None:
+        """Normalises the weights to make sure they don't excede 1
+        This is a method I decided to include in case any mistake is made when receiving the weight parameters,
+        it wasn't asked in the practice :)
+        """
+        total = self._w_heuristic + self._w_neural
+        if total == 0:
+            return 
+        self._w_heuristic /= total
+        self._w_neural /= total
+        return self
+    
+    def eval_traditional(self, gameState: GameState):
+        return scoreEvaluationFunction(gameState)
+    
+    def eval_neural(self, gameState: GameState):
+        return 0  #aquí falta añadir la evaluación del modelo cuando esté hecha
+
+    def evaluationFunction(self, gameState) -> float:
+        if self._w_heuristic + self._w_neural > 1: 
+            self.normalise()
+
+        traditional_score = self.eval_traditional(gameState)
+        neural_score = self.eval_neural(gameState)
+        return self._w_heuristic * traditional_score + self._w_neural * neural_score
+
+
+#From the original excercise, not specified in our project
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
     Your expectimax agent (question 4)
