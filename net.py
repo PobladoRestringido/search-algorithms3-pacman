@@ -229,7 +229,7 @@ def main():
     print(f"Usando dispositivo: {device}")
 
     # Cargar datos
-    maps, actions = load_and_merge_data()
+    maps, actions = load_and_merge_data(args.data)
 
     # Preprocesar mapas
     maps, input_size = preprocess_maps(maps)
@@ -255,9 +255,37 @@ def main():
     trained_model = train_model(model, train_loader, test_loader, device)
 
     # Guardar modelo
-    save_model(trained_model, input_size)
+    if args.save:
+        save_model(trained_model, input_size, model_path=args.save)
+    else:
+        save_model(trained_model, input_size)
+
     print(f"Tiempo total de ejecución: {time.time() - start_time:.2f} segundos")
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--data",
+        type=str,
+        default="pacman_data",
+        help="Folder containing training CSV files",
+    )
+    parser.add_argument(
+        "--train",
+        action="store_true",
+        help="Train the model using the specified dataset",
+    )
+    parser.add_argument(
+        "--save",
+        type=str,
+        default=None,
+        help="Path to save the trained model",
+    )
+
+    args = parser.parse_args()
+
+    if args.train:
+        main()

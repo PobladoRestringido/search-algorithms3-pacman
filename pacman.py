@@ -694,6 +694,16 @@ def readCommand(argv):
         default=None,
     )
 
+    ###################################################
+    # Pablo R.
+    ###################################################
+    parser.add_option(
+        "--model_path",
+        dest="model_path",
+        help="Python file from which to load the Pacman NN model",
+        default="models/pacman_model.pth",
+    )
+
     # parseamos los argumentos
 
     args_parser = parser.parse_args(argv)

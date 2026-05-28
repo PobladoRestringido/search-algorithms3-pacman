@@ -3,21 +3,53 @@ from utils import parse_pacman_output
 from collections import defaultdict
 
 
-def run_pacman(agent: str, layout: str | None = None):
+class ModelNotFoundError(Exception):
+    pass
+
+
+def run_pacman(
+    agent: str,
+    layout: str | None = None,
+    fast: bool = False,
+    model_path: str | None = None,
+    n_runs: int = 1,
+):
     """
     Runs a single Pacman game with the given agent and layout.
     Returns the raw output text.
 
-    If layout is None, a default layout is used.
+    Parameters
+    ----------
+    agent : str
+        Name of the Pacman agent class.
+    layout : str | None
+        Layout name (default: mediumClassic)
+    fast : bool
+        If True, run with --frameTime 0 for maximum speed.
+
+    Raises
+    ------
+    ModelNotFoundError
+        If `model_path` cannot be found.
     """
 
-    layout = layout or "mediumClassic"  # default layout
+    cmd = ["python", "pacman.py", "-p", agent, "-q", "-n", str(n_runs)]
 
-    cmd = ["python", "pacman.py", "-p", agent, "-l", layout, "-q"]  # quiet graphics
+    if layout:
+        cmd += ["-l", layout]
+
+    if model_path:
+        cmd += ["-a", f"model_path={model_path}"]
+
+    if fast:
+        cmd += ["--frameTime", "0"]
 
     result = subprocess.run(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
+
+    if "ERROR: No se encontró el modelo" in result.stdout:
+        raise ModelNotFoundError(f"Model with path {model_path} not found")
 
     return result.stdout
 
@@ -25,68 +57,81 @@ def run_pacman(agent: str, layout: str | None = None):
 def sweep(
     agents: list[str],
     layouts: list[str | None],
+    neural_net_paths: list[str | None],
     runs: int,
-):
+    fast: bool = False,
+) -> dict[tuple[str, str, str], dict]:
     """
     Runs all combinations of agents × layouts for a given number of runs.
 
     Parameters
     ----------
     agents : list[str]
-        Agent class names (e.g., ["NeuralAgent", "ReflexAgent"])
     layouts : list[str]
-        Layout names (e.g., ["smallClassic", "mediumClassic"])
     runs : int
-        Number of runs per (agent, layout) pair.
-
-    Returns
-    -------
-    results : dict
-        results[(agent, layout)] = list of parsed run dictionaries
+    fast : bool
+        If True, pass fast=True to run_pacman for ultra‑quick runs.
     """
-    results = defaultdict(list)
+    assert len(agents) == len(layouts) == len(neural_net_paths)
 
-    for agent in agents:
-        for layout in layouts:
-            print(f"\n=== {agent} on {layout} ({runs} runs) ===")
+    results = {}
 
-            for i in range(runs):
-                print(f"  Run {i+1}/{runs}...", end=" ")
+    for agent, layout, model_path in zip(agents, layouts, neural_net_paths):
+        #breakpoint()
+        pretty_layout = layout or "default layout"
+        pretty_model = model_path or "default model"
 
-                actual_layout = layout or "mediumClassic"  # default layout
+        print(
+            f"\n=== Running {agent} on {pretty_layout} using {pretty_model} ({runs} runs) ==="
+        )
 
-                raw = run_pacman(agent, layout)
-                parsed = parse_pacman_output(raw)
+        raw = run_pacman(agent, layout, fast=fast, model_path=model_path, n_runs=runs)
+        parsed: dict = parse_pacman_output(raw)
 
-                results[(agent, layout)].append(parsed)
+        key = (agent, pretty_layout, pretty_model)
+        results[key] = parsed
 
-                print("done")
+        print("done")
 
     return results
 
 
-def print_summary_table(results: dict) -> None:
+def print_summary_table(results: dict[tuple[str, str, str], dict]) -> None:
     """
     Prints a neat summary table from the sweep results.
+
+    Summary table has the following columns:
+    - Agent
+    - Layout
+    - Model Path
+    - Runs
+    - Avg Score
+    - WinRate
     """
-    print("\n==================== SUMMARY ====================")
-    print(f"{'Agent':15} {'Layout':15} {'Runs':5} {'AvgScore':10} {'WinRate':8}")
+    MODEL_PATH_WIDTH = 35
 
-    for (agent, layout), runs in results.items():
-        scores = [r.get("score", 0) for r in runs]
-        wins = sum(1 for r in runs if r.get("record") == "Win")
-        total = len(runs)
+    print(f"\n{'='*40} BENCHMARK {'='*40}")
+    print(
+        f"{'Agent':15} {'Layout':15} {'Model Path':{MODEL_PATH_WIDTH}} {'Runs':5} {'AvgScore':10} {'WinRate':8}"
+    )
 
-        avg_score = sum(scores) / total if total else 0
-        win_rate = wins / total if total else 0
+    for (agent, layout, model_path), parsed_dict in results.items():
 
-        print(f"{agent:15} {layout:15} {total:<5} {avg_score:<10.1f} {win_rate:<8.2f}")
+        total_runs = parsed_dict.get("games", 0)
+        avg_score = parsed_dict.get("average_score", 0.0)
+        win_rate = parsed_dict.get("win_rate", 0.0)
+
+        print(
+            f"{agent:15} {layout:15} {model_path:{MODEL_PATH_WIDTH}} {total_runs:<5} {avg_score:<10.1f} {win_rate:8}"
+        )
 
 
 def benchmark(
     agents: list[str],
     layouts: list[str | None],
+    neural_net_paths: list[str | None],
     n_runs: int,
+    fast: bool = False,
 ) -> dict:
     """
     Full end‑to‑end orchestrator:
@@ -94,7 +139,27 @@ def benchmark(
     - collects results
     - prints summary table
     - returns results for further processing
+
+    Parameters
+    ----------
+    agents: list[str]
+        List of agent names to be used.
+
+    layouts: list[str | None]
+        List of layouts to be employed. Use `None`'s for default layout.
+
+    neural_net_paths: list[str | None]
+        List of paths to the trained neural net models to be used. Use `None`'s for
+        "models/pacman_model.pth".
+
+    n_runs: int
+        Number of runs to be performed with each agent.
+
+    fast: bool
+        (I think this parameter doesn't work) - Pablo
     """
-    results = sweep(agents, layouts, n_runs)
+    results = sweep(
+        agents, layouts, runs=n_runs, fast=fast, neural_net_paths=neural_net_paths
+    )
     print_summary_table(results)
     return results
