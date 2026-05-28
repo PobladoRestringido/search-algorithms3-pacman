@@ -311,55 +311,6 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         return best_action
 
 
-# AlphaBeta con pesos:
-class AlphaBetaNeuralAgent(AlphaBetaAgent):
-    """
-    Implements the Alpha-Beta algorithm with weights, giving the result
-    final_score = w_heuristic * traditional_score + w_neural * neural_score
-    """
-
-    def __init__(
-        self, w_heuristic=0.5, w_neural=0.5, evalFn="scoreEvaluationFunction", depth="2"
-    ) -> None:
-        """
-        Constructor of the class
-
-        Args
-        ----
-        w_heuristic (float) -> the weight of the alpha-beta
-        w_neural (float) -> the weight of the alpha-beta
-        """
-        super().__init__(evalFn=evalFn, depth=depth)
-        self._w_heuristic = w_heuristic
-        self._w_neural = w_neural
-
-    def normalise(self) -> None:
-        """Normalises the weights to make sure they don't excede 1
-        This is a method I decided to include in case any mistake is made when receiving the weight parameters,
-        it wasn't asked in the practice :)
-        """
-        total = self._w_heuristic + self._w_neural
-        if total == 0:
-            return
-        self._w_heuristic /= total
-        self._w_neural /= total
-        return self
-
-    def eval_traditional(self, gameState: GameState):
-        return scoreEvaluationFunction(gameState)
-
-    def eval_neural(self, gameState: GameState):
-        return 0  # aquí falta añadir la evaluación del modelo cuando esté hecha
-
-    def evaluationFunction(self, gameState) -> float:
-        if self._w_heuristic + self._w_neural > 1:
-            self.normalise()
-
-        traditional_score = self.eval_traditional(gameState)
-        neural_score = self.eval_neural(gameState)
-        return self._w_heuristic * traditional_score + self._w_neural * neural_score
-
-
 # From the original excercise, not specified in our project
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -673,3 +624,80 @@ def createNeuralAgent(model_path="models/pacman_model.pth"):
     Útil para integrarse con la estructura de pacman.py.
     """
     return NeuralAgent(model_path)
+
+
+# AlphaBeta con pesos:
+class AlphaBetaNeuralAgent(AlphaBetaAgent, NeuralAgent):
+    """
+    Implements the Alpha-Beta algorithm with weights, giving the result
+    final_score = w_heuristic * traditional_score + w_neural * neural_score
+    """
+
+    def __init__(
+        self,
+        w_heuristic=0.5,
+        w_neural=0.5,
+        model_path="models/pacman_model.pth",
+        depth="2",
+    ) -> None:
+        """
+        Constructor of the class
+
+        Args
+        ----
+        w_heuristic (float) -> the weight of the alpha-beta
+        w_neural (float) -> the weight of the alpha-beta
+        """
+        # Initialize AlphaBetaAgent (search logic)
+        AlphaBetaAgent.__init__(self, evalFn="scoreEvaluationFunction", depth=depth)
+
+        # Initialize NeuralAgent (model, device, mappings)
+        NeuralAgent.__init__(self, model_path=model_path)
+
+        self._w_heuristic = w_heuristic
+        self._w_neural = w_neural
+
+        if self._w_heuristic + self._w_neural > 1:
+            self.normalise()
+
+    def normalise(self) -> None:
+        """Normalises the weights to make sure they don't excede 1
+        This is a method I decided to include in case any mistake is made when receiving the weight parameters,
+        it wasn't asked in the practice :)
+        """
+        total = self._w_heuristic + self._w_neural
+        if total == 0:
+            return
+        self._w_heuristic /= total
+        self._w_neural /= total
+
+    def eval_traditional(self, gameState):
+        """Use the improved heuristics from NeuralAgent.evaluationFunction"""
+        return NeuralAgent.evaluationFunction(self, gameState)
+
+    def eval_neural(self, gameState):
+        """Pure neural network score (no heuristics)"""
+        if self.model is None:
+            return 0
+
+        state_matrix = self.state_to_matrix(gameState)
+        state_tensor = torch.FloatTensor(state_matrix).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            output = self.model(state_tensor)
+            probabilities = torch.nn.functional.softmax(output, dim=1).cpu().numpy()[0]
+
+        # Neural score = expected value over legal actions
+        legal_actions = gameState.getLegalActions()
+        neural_score = 0
+        for idx, action in self.idx_to_action.items():
+            if action in legal_actions:
+                neural_score += probabilities[idx] * 100
+
+        return neural_score
+
+    def evaluationFunction(self, gameState) -> float:
+
+        traditional_score = self.eval_traditional(gameState)
+        neural_score = self.eval_neural(gameState)
+        return self._w_heuristic * traditional_score + self._w_neural * neural_score
