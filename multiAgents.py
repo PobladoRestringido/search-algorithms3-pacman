@@ -36,7 +36,7 @@ class ReflexAgent(Agent):
     headers.
     """
 
-    def getAction(self, gameState: GameState):
+    def getAction(self, state: GameState):
         """
         You do not need to change this method, but you're welcome to.
 
@@ -46,10 +46,10 @@ class ReflexAgent(Agent):
         some Directions.X for some X in the set {NORTH, SOUTH, WEST, EAST, STOP}
         """
         # Collect legal moves and successor states
-        legalMoves = gameState.getLegalActions()
+        legalMoves = state.getLegalActions()
 
         # Choose one of the best actions
-        scores = [self.evaluationFunction(gameState, action) for action in legalMoves]
+        scores = [self.evaluationFunction(state, action) for action in legalMoves]
         bestScore = max(scores)
         bestIndices = [
             index for index in range(len(scores)) if scores[index] == bestScore
@@ -123,7 +123,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
     Your minimax agent (question 2)
     """
 
-    def getAction(self, gameState: GameState):
+    def getAction(self, state: GameState):
         """
         Returns the minimax action from the current gameState using self.depth
         and self.evaluationFunction.
@@ -229,8 +229,8 @@ class MinimaxAgent(MultiAgentSearchAgent):
         # time to chose the next action:
         best_action = None
         best_score = float("-inf")
-        for action in gameState.getLegalActions(0):  # pacman starts
-            successor = gameState.generateSuccessor(0, action)
+        for action in state.getLegalActions(0):  # pacman starts
+            successor = state.generateSuccessor(0, action)
             score = minimax(1, 0, successor)
 
             if score > best_score:
@@ -246,7 +246,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
     Your minimax agent with alpha-beta pruning (question 3)
     """
 
-    def getAction(self, gameState: GameState):
+    def getAction(self, state: GameState):
         """
         Returns the minimax action using self.depth and self.evaluationFunction
         """
@@ -298,9 +298,9 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
                 return min_eval
 
         # ============ RUNNING ALPHA-BETA FOR ALL ACTIONS ===============
-        legal_actions = gameState.getLegalActions(0)  # we start with pacman
+        legal_actions = state.getLegalActions(0)  # we start with pacman
         for action in legal_actions:
-            successor = gameState.generateSuccessor(0, action)
+            successor = state.generateSuccessor(0, action)
             score = alphabeta(1, 0, successor, alpha, beta)
 
             if score > best_score:
@@ -448,16 +448,20 @@ class NeuralAgent(Agent):
 
         return numeric_map
 
-    def evaluationFunction(self, state):
+    def neural_eval(self, state) -> float:
         """
-        Una función de evaluación basada en la red neuronal y en heurísticas
-        adicionales.
+        Provides a valuation of a given pacman state using exclusively the NN's trained
+        output.
 
-        Heurísticas adicionales
-        -----------------------
-        - Prefer going toward power capsules.
-        - Avoid going for further power capsules when under the effect of one.
-        - Avoid 'undoing' moves unless necessary.
+        Parameters
+        ----------
+        state
+            The board state to evaluate.
+
+        Returns
+        -------
+        neural_score: float
+            NN-based valuation of `state`. Will always be `0` if no model is loaded.
         """
         if self.model is None:
             return 0  # Si no hay modelo, devolver 0
@@ -476,20 +480,50 @@ class NeuralAgent(Agent):
         # Obtener acciones legales
         legal_actions = state.getLegalActions()
 
+        # puntuación de la red
+        neural_score = 0
+        for i, action in enumerate(self.idx_to_action.values()):
+            if action in legal_actions:
+                neural_score += probabilities[i] * 100
+
+        return neural_score
+
+    def heuristic_eval(self, state) -> float:
+        """
+        Provides a valuation of a given pacman state using exclusively human-written heuristics.
+        output.
+
+        Parameters
+        ----------
+        state
+            The board state to evaluate.
+
+        Returns
+        -------
+        heuristic_score: float
+            heuristic-based valuation of `state`.
+
+        Heurísticas adicionales
+        -----------------------
+        - Prefer going toward power capsules.
+        - Avoid going for further power capsules when under the effect of one.
+        - Avoid 'undoing' moves unless necessary.
+        """
         # Aplicar heurísticas adicionales, similar a betterEvaluationFunction
-        score = state.getScore()
+        heuristic_score = state.getScore()
 
         # Mejorar la evaluación con conocimiento del dominio
         pacman_pos = state.getPacmanPosition()
         food = state.getFood().asList()
         ghost_states = state.getGhostStates()
+        legal_actions = state.getLegalActions()
 
         # Factor 1: Distancia a la comida más cercana
         if food:
             min_food_distance = min(
                 manhattanDistance(pacman_pos, food_pos) for food_pos in food
             )
-            score += 1.0 / (min_food_distance + 1)
+            heuristic_score += 1.0 / (min_food_distance + 1)
 
         # Factor 2: Proximidad a fantasmas
         for ghost_state in ghost_states:
@@ -498,11 +532,13 @@ class NeuralAgent(Agent):
 
             if ghost_state.scaredTimer > 0:
                 # Si el fantasma está asustado, acercarse a él
-                score += 50 / (ghost_distance + 1)
+                heuristic_score += 50 / (ghost_distance + 1)
             else:
                 # Si no está asustado, evitarlo
                 if ghost_distance <= 2:
-                    score -= 200  # Gran penalización por estar demasiado cerca
+                    heuristic_score -= (
+                        200  # Gran penalización por estar demasiado cerca
+                    )
 
         # Factor 3: Distancia a la cápsula de poder más cercana
         power_capsules = state.getCapsules()
@@ -516,10 +552,10 @@ class NeuralAgent(Agent):
             )
 
             if not power_active:
-                score += 5.0 / (min_capsule_distance + 1)
+                heuristic_score += 5.0 / (min_capsule_distance + 1)
             else:
                 # Strongly discourage consuming capsules while powered
-                score -= 100.0 / (min_capsule_distance + 1)
+                heuristic_score -= 100.0 / (min_capsule_distance + 1)
 
         # Factor 4: Discourage "undoing" moves
         opposites = {
@@ -534,15 +570,26 @@ class NeuralAgent(Agent):
         ):  # (last move might've been STOP)
             undo = opposites[self.last_action]
             if undo in legal_actions:
-                score -= 10
+                heuristic_score -= 10
 
-        # Combinar la puntuación de la red con la heurística
-        neural_score = 0
-        for i, action in enumerate(self.idx_to_action.values()):
-            if action in legal_actions:
-                neural_score += probabilities[i] * 100
+        return heuristic_score
 
-        return score + neural_score
+    def evaluationFunction(self, state) -> float:
+        """
+        Una función de evaluación basada en la red neuronal y en heurísticas
+        adicionales.
+
+        Heurísticas adicionales
+        -----------------------
+        - Prefer going toward power capsules.
+        - Avoid going for further power capsules when under the effect of one.
+        - Avoid 'undoing' moves unless necessary.
+        """
+
+        heuristic_score: float = self.heuristic_eval(state=state)
+        neural_score: float = self.neural_eval(state=state)
+
+        return heuristic_score + neural_score
 
     def _return_action(self, action):
         self.last_action = action
@@ -629,8 +676,8 @@ def createNeuralAgent(model_path="models/pacman_model.pth"):
 # AlphaBeta con pesos:
 class AlphaBetaNeuralAgent(AlphaBetaAgent, NeuralAgent):
     """
-    Implements the Alpha-Beta algorithm with weights, giving the result
-    final_score = w_heuristic * traditional_score + w_neural * neural_score
+    Implements the Alpha-Beta algorithm with a weighted eval function, giving the result
+    final_score = w_heuristic * heuristic_score + w_neural * neural_score
     """
 
     def __init__(
@@ -645,19 +692,20 @@ class AlphaBetaNeuralAgent(AlphaBetaAgent, NeuralAgent):
 
         Args
         ----
-        w_heuristic (float) -> the weight of the alpha-beta
-        w_neural (float) -> the weight of the alpha-beta
+        w_heuristic (float) -> the weight of the heuristic part of the eval function.
+        w_neural (float) -> the weight of the neural part of the eval function.
         """
-        # Initialize AlphaBetaAgent (search logic)
-        AlphaBetaAgent.__init__(self, evalFn="scoreEvaluationFunction", depth=depth)
 
-        # Initialize NeuralAgent (model, device, mappings)
+        # Initialize AlphaBetaAgent (search logic)
+        AlphaBetaAgent.__init__(self, depth=depth)
+
+        # Initialize NeuralAgent (eval functions)
         NeuralAgent.__init__(self, model_path=model_path)
 
         self._w_heuristic = w_heuristic
         self._w_neural = w_neural
 
-        if self._w_heuristic + self._w_neural > 1:
+        if self._w_heuristic + self._w_neural != 1:
             self.normalise()
 
     def normalise(self) -> None:
@@ -671,33 +719,9 @@ class AlphaBetaNeuralAgent(AlphaBetaAgent, NeuralAgent):
         self._w_heuristic /= total
         self._w_neural /= total
 
-    def eval_traditional(self, gameState):
-        """Use the improved heuristics from NeuralAgent.evaluationFunction"""
-        return NeuralAgent.evaluationFunction(self, gameState)
+    def evaluationFunction(self, state) -> float:
 
-    def eval_neural(self, gameState):
-        """Pure neural network score (no heuristics)"""
-        if self.model is None:
-            return 0
+        heuristic_score: float = self.heuristic_eval(state=state)
+        neural_score: float = self.neural_eval(state=state)
 
-        state_matrix = self.state_to_matrix(gameState)
-        state_tensor = torch.FloatTensor(state_matrix).unsqueeze(0).to(self.device)
-
-        with torch.no_grad():
-            output = self.model(state_tensor)
-            probabilities = torch.nn.functional.softmax(output, dim=1).cpu().numpy()[0]
-
-        # Neural score = expected value over legal actions
-        legal_actions = gameState.getLegalActions()
-        neural_score = 0
-        for idx, action in self.idx_to_action.items():
-            if action in legal_actions:
-                neural_score += probabilities[idx] * 100
-
-        return neural_score
-
-    def evaluationFunction(self, gameState) -> float:
-
-        traditional_score = self.eval_traditional(gameState)
-        neural_score = self.eval_neural(gameState)
-        return self._w_heuristic * traditional_score + self._w_neural * neural_score
+        return self._w_heuristic * heuristic_score + self._w_neural * neural_score
