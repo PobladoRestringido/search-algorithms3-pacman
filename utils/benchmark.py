@@ -77,7 +77,7 @@ def sweep(
     results = {}
 
     for agent, layout, model_path in zip(agents, layouts, neural_net_paths):
-        #breakpoint()
+        # breakpoint()
         pretty_layout = layout or "default layout"
         pretty_model = model_path or "default model"
 
@@ -109,10 +109,11 @@ def print_summary_table(results: dict[tuple[str, str, str], dict]) -> None:
     - WinRate
     """
     MODEL_PATH_WIDTH = 35
+    AGENT_NAME_WIDTH = 25
 
     print(f"\n{'='*40} BENCHMARK {'='*40}")
     print(
-        f"{'Agent':15} {'Layout':15} {'Model Path':{MODEL_PATH_WIDTH}} {'Runs':5} {'AvgScore':10} {'WinRate':8}"
+        f"{'Agent':{AGENT_NAME_WIDTH}} {'Layout':15} {'Model Path':{MODEL_PATH_WIDTH}} {'Runs':5} {'AvgScore':10} {'WinRate':8}"
     )
 
     for (agent, layout, model_path), parsed_dict in results.items():
@@ -122,7 +123,7 @@ def print_summary_table(results: dict[tuple[str, str, str], dict]) -> None:
         win_rate = parsed_dict.get("win_rate", 0.0)
 
         print(
-            f"{agent:15} {layout:15} {model_path:{MODEL_PATH_WIDTH}} {total_runs:<5} {avg_score:<10.1f} {win_rate:8}"
+            f"{agent:{AGENT_NAME_WIDTH}} {layout:15} {model_path:{MODEL_PATH_WIDTH}} {total_runs:<5} {avg_score:<10.1f} {win_rate:8}"
         )
 
 

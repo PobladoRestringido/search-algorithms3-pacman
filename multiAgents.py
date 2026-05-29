@@ -502,12 +502,6 @@ class NeuralAgent(Agent):
         -------
         heuristic_score: float
             heuristic-based valuation of `state`.
-
-        Heurísticas adicionales
-        -----------------------
-        - Prefer going toward power capsules.
-        - Avoid going for further power capsules when under the effect of one.
-        - Avoid 'undoing' moves unless necessary.
         """
         # Aplicar heurísticas adicionales, similar a betterEvaluationFunction
         heuristic_score = state.getScore()
@@ -539,38 +533,6 @@ class NeuralAgent(Agent):
                     heuristic_score -= (
                         200  # Gran penalización por estar demasiado cerca
                     )
-
-        # Factor 3: Distancia a la cápsula de poder más cercana
-        power_capsules = state.getCapsules()
-
-        if power_capsules:
-            power_active = any(
-                g.scaredTimer > 0 for g in ghost_states
-            )  # detect power capsule effect
-            min_capsule_distance = min(
-                manhattanDistance(pacman_pos, cap_pos) for cap_pos in power_capsules
-            )
-
-            if not power_active:
-                heuristic_score += 5.0 / (min_capsule_distance + 1)
-            else:
-                # Strongly discourage consuming capsules while powered
-                heuristic_score -= 100.0 / (min_capsule_distance + 1)
-
-        # Factor 4: Discourage "undoing" moves
-        opposites = {
-            Directions.NORTH: Directions.SOUTH,
-            Directions.SOUTH: Directions.NORTH,
-            Directions.EAST: Directions.WEST,
-            Directions.WEST: Directions.EAST,
-        }
-
-        if (
-            hasattr(self, "last_action") and self.last_action in opposites
-        ):  # (last move might've been STOP)
-            undo = opposites[self.last_action]
-            if undo in legal_actions:
-                heuristic_score -= 10
 
         return heuristic_score
 
@@ -662,6 +624,60 @@ class NeuralAgent(Agent):
 
         # Devolver la mejor acción
         return self._return_action(successors[0][0])
+
+
+class ExtendedNeuralAgent(NeuralAgent):
+
+    def heuristic_eval(self, state) -> float:
+        """
+        Additional heuristics
+        -----------------------
+        - Prefer going toward power capsules.
+        - Avoid going for further power capsules when under the effect of one.
+        - Avoid 'undoing' moves unless necessary.
+        """
+
+        # Mejorar la evaluación con conocimiento del dominio
+        pacman_pos = state.getPacmanPosition()
+        food = state.getFood().asList()
+        ghost_states = state.getGhostStates()
+        legal_actions = state.getLegalActions()
+
+        heuristic_score: float = super().heuristic_eval(state)
+
+        # Factor 3: Distancia a la cápsula de poder más cercana
+        power_capsules = state.getCapsules()
+
+        if power_capsules:
+            power_active = any(
+                g.scaredTimer > 0 for g in ghost_states
+            )  # detect power capsule effect
+            min_capsule_distance = min(
+                manhattanDistance(pacman_pos, cap_pos) for cap_pos in power_capsules
+            )
+
+            if not power_active:
+                heuristic_score += 5.0 / (min_capsule_distance + 1)
+            else:
+                # Strongly discourage consuming capsules while powered
+                heuristic_score -= 100.0 / (min_capsule_distance + 1)
+
+        # Factor 4: Discourage "undoing" moves
+        opposites = {
+            Directions.NORTH: Directions.SOUTH,
+            Directions.SOUTH: Directions.NORTH,
+            Directions.EAST: Directions.WEST,
+            Directions.WEST: Directions.EAST,
+        }
+
+        if (
+            hasattr(self, "last_action") and self.last_action in opposites
+        ):  # (last move might've been STOP)
+            undo = opposites[self.last_action]
+            if undo in legal_actions:
+                heuristic_score -= 10
+
+        return heuristic_score
 
 
 # Definir una función para crear el agente
