@@ -14,8 +14,8 @@
 
 ## Alicia tasks ()
 
-- [_] Implement regular AlphaBeta and COMMENT ON IT (8h)
-  _Done by Alicia, BUT STILL NEEDS COMMENTING_
+- [X] Implement regular AlphaBeta and COMMENT ON IT (8h)
+  Ya lo he comentado
 - [_] Write into report about 1st AlphaBetaNeural version (4h)
 - [_] (Optional) Improvements to `AlphaBetaNeuralAgent` and COMMENT ON IT (12h)
   _e.g. dynamic weights that decay over the game's course_
