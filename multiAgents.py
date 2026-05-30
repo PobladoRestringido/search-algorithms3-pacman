@@ -695,7 +695,6 @@ class AlphaBetaNeuralAgent(AlphaBetaAgent, NeuralAgent):
     Implements the Alpha-Beta algorithm with a weighted eval function, giving the result
     final_score = w_heuristic * heuristic_score + w_neural * neural_score
     """
-
     def __init__(
         self,
         w_heuristic=0.5,
@@ -741,3 +740,42 @@ class AlphaBetaNeuralAgent(AlphaBetaAgent, NeuralAgent):
         neural_score: float = self.neural_eval(state=state)
 
         return self._w_heuristic * heuristic_score + self._w_neural * neural_score
+    
+
+class AlphaBetaNeuralDynamicWeightsAgent(AlphaBetaNeuralAgent):
+    """
+    Implements the Alpha-Beta algorithm with a weighted eval function, giving the result
+    final_score = w_heuristic * heuristic_score + w_neural * neural_score
+    """
+
+    def __init__(
+        self,
+        w_heuristic=0.5,
+        w_neural=0.5,
+        model_path="models/pacman_model.pth",
+        depth="2",
+    ) -> None:
+        """
+        Constructor of the class
+
+        Args
+        ----
+        w_heuristic (float) -> the weight of the heuristic part of the eval function.
+        w_neural (float) -> the weight of the neural part of the eval function.
+        """
+
+        super().__init__(w_heuristic, w_neural, model_path, depth)
+
+        self.call_count = 0
+
+
+    def evaluationFunction(self, state) -> float:
+
+        self.call_count += 1
+
+        heuristic_score: float = self.heuristic_eval(state=state)
+        neural_score: float = self.neural_eval(state=state)
+        dynamic_w_neural = self._w_neural / self.call_count
+        dynamic_w_heuristic = 1 - dynamic_w_neural
+
+        return dynamic_w_heuristic * heuristic_score + dynamic_w_neural * neural_score
